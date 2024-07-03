@@ -69,3 +69,50 @@ axs[0].legend()
 axs[0].grid(True)
 plt.tight_layout()
 plt.show()
+
+#another
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Parameters
+sampling_rate = 1000  # Hz
+signal_frequency = 50  # Hz
+duration = 1  # seconds
+quantization_bits = 8  # Number of quantization bits
+dc_offset = 1.5  # Positive DC offset value
+
+# Generate analog signal (sine wave with DC offset)
+time = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
+analog_signal = np.sin(2 * np.pi * signal_frequency * time) + dc_offset
+
+# PCM encoding
+max_amplitude = np.max(np.abs(analog_signal))
+quantization_levels = 2 ** quantization_bits
+quantization_step = 2 * max_amplitude / quantization_levels
+quantized_signal = np.round(analog_signal / quantization_step) * quantization_step
+
+# PCM decoding (reconstruction)
+reconstructed_signal = quantized_signal
+
+# Plot original analog signal
+plt.figure(figsize=(10, 6))
+plt.subplot(2, 1, 1)
+plt.plot(time, analog_signal, label='Analog Signal', color='blue')
+plt.title('Original Analog Signal with DC Offset')
+plt.xlabel('Time (seconds)')
+plt.ylabel('Amplitude')
+plt.legend()
+plt.grid(True)
+
+# Plot reconstructed signal (PCM)
+plt.subplot(2, 1, 2)
+plt.plot(time, reconstructed_signal, label='Reconstructed Signal (PCM)', linestyle='--', color='orange')
+plt.title('Reconstructed Signal (PCM)')
+plt.xlabel('Time (seconds)')
+plt.ylabel('Amplitude')
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
