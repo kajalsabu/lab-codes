@@ -1,0 +1,31 @@
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Defining Raised Cosine functions
+def raisedCosineFilter(time, beta, T):
+    h = []
+    for t in time:
+        if (t == T/(2*beta)) or (t == -T/(2*beta)):
+            val = (np.pi / (2* T)) * np.sinc(1/(2 * beta))
+        else:
+            val = ((1/T) * np.sinc(t/T) * (np.cos(np.pi*beta * t/T) /(1 - (2 * beta* t/T)**2)))
+        h.append(val)
+    return np.array(h)
+
+def get_RC_filter(beta, Ts):
+    return lambda t: raisedCosineFilter(t, beta, Ts)
+
+Ts = 1
+Fs = 100
+g = get_RC_filter(beta=0.95, Ts=Ts)
+d = 2 * (np.random.randn(100) > 0.5) - 1
+
+t = np.arange(0, (len(d))*Ts, 1/Fs)
+x = sum(d[k] * g(t - k*Ts) for k in range(len(d)))
+
+for i in range(int(len(x)/(2*Fs*Ts))):
+    plt.plot(x[i*Fs*Ts:(i*Ts+2*Ts)*Fs])
+
+print("eye diagram")
+plt.show()
