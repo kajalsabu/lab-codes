@@ -164,3 +164,72 @@ plt.grid(True)
 
 plt.tight_layout()
 plt.show()
+
+
+#another
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Define the parameters
+rolloff = 0.4      # Rolloff factor
+span = 10          # Filter span in symbols
+sps = 8            # Samples per symbol
+
+# Generate the square-root raised cosine filter coefficients
+def srrc_filter(rolloff, span, sps):
+    t = np.linspace(-span / 2, span / 2, span * sps + 1)
+    rctFilt = np.zeros_like(t)
+
+    for i in range(len(t)):
+        if t[i] == 0.0:
+            rctFilt[i] = 1.0 - rolloff + 4 * rolloff / np.pi
+        elif abs(t[i]) == 1 / (4 * rolloff):
+            rctFilt[i] = rolloff / np.sqrt(2) * ((1 + 2 / np.pi) *
+                           np.sin(np.pi / (4 * rolloff)) +
+                           (1 - 2 / np.pi) * np.cos(np.pi / (4 * rolloff)))
+        else:
+            numerator = np.sin(np.pi * t[i] * (1 - rolloff)) + 4 * rolloff * t[i] * np.cos(np.pi * t[i] * (1 + rolloff))
+            denominator = np.pi * t[i] * (1 - (4 * rolloff * t[i])**2)
+            rctFilt[i] = numerator / denominator
+
+    rctFilt = rctFilt / np.sqrt(np.sum(rctFilt**2))  # Normalize to unit energy
+    return rctFilt
+
+rctFilt = srrc_filter(rolloff, span, sps)
+
+# Parameters
+overSampling_Factor = 8
+alpha = 0.1
+
+# Generate SRRC pulse
+pt = srrc(overSampling_Factor, alpha)
+
+# Convolve input bit with SRRC pulse
+Input_bit = [1]
+Input_bit_os = np.repeat(Input_bit, overSampling_Factor)
+rctFilt = np.convolve(Input_bit_os, pt, mode='full')
+
+# Plot the filter response
+plt.stem(rctFilt, use_line_collection=True)
+plt.title('Response of SRRC Filter at Tx side')
+plt.xlabel('Samples')
+plt.ylabel('Amplitude')
+plt.grid()
+plt.show()
+
+# Downsample (ADC conversion and sampling)
+y = np.convolve(output_of_srrc_filter, pt, mode='full')
+midSample = len(np.arange(-4, 4, 1 / overSampling_Factor))
+y_truncated = y[midSample - 1:] # Remove unwanted portions (till the peak value)
+
+y_down = y_truncated[::overSampling_Factor]
+
+
+
+plt.stem(y_down)
+plt.title('Down sampled output (ADC conversion and Sampling)')
+plt.xlabel('Samples')
+plt.ylabel('Amplitude')
+plt.show()
