@@ -1,0 +1,51 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.special import erfc
+
+# Function to simulate BPSK transmission and calculate the bit error rate (BER)
+def simulate_bpsk_awgn(Eb_N0_dB,num_bits=1000000):
+    # Convert Eb/N0 dB to linear value
+    Eb_N0 = 10**(Eb_N0_dB/10)
+
+    # Generate random bit sequence
+    bits = np.random.choice([0, 1], size=num_bits)
+
+    # BPSK modulation (0 -> -1, 1 -> 1)
+    bpsk_modulated = 2*bits - 1
+
+    # Generate AWGN noise
+    noise_std = np.sqrt(1/(2*Eb_N0))
+    noise = noise_std * np.random.randn(num_bits)
+
+    # Add noise to the BPSK signal
+    received_signal = bpsk_modulated + noise
+
+    # BPSK demodulation
+    demodulated_bits = np.where(received_signal >= 0, 1, 0)
+
+    # Calculate the number of bit errors
+    bit_errors = np.sum(bits != demodulated_bits)
+
+    # Calculate the bit error rate (BER)
+    ber = bit_errors / num_bits
+    return ber
+
+# Range of Eb/N0 values for which to simulate
+Eb_N0_dB_range = np.arange(0, 11, 1)
+
+# Simulate BER for the range of Eb/N0 values
+ber_simulated = [simulate_bpsk_awgn(Eb_N0_dB) for Eb_N0_dB in Eb_N0_dB_range]
+
+# Theoretical BER for BPSK over AWGN
+ber_theoretical = 0.5 * erfc(np.sqrt(10**(Eb_N0_dB_range/10)))
+
+# Plotting the results
+plt.figure()
+plt.semilogy(Eb_N0_dB_range, ber_simulated, 'o-', label='Simulated')
+plt.semilogy(Eb_N0_dB_range, ber_theoretical, 's-', label='Theoretical')
+plt.xlabel('Eb/N0 (dB)')
+plt.ylabel('Bit Error Rate (BER)')
+plt.title('BPSK over AWGN Channel')
+plt.legend()
+plt.grid(True)
+plt.show()
