@@ -1,0 +1,166 @@
+import numpy as np
+
+def srrc(os_factor, roll_off):
+    a = roll_off
+    t = np.arange(-4, 4, 1 / os_factor) # Limiting the response to -4T to 4T
+
+    # Initialize an array for the SRRC pulse
+    p = np.zeros(len(t))
+
+    for i in range(len(t)):
+        if t[i] == 0:
+            p[i] = (1 - a) + 4 * a / np.pi
+        elif t[i] == 1 / (4 * a) or t[i] == -1 / (4 * a):
+            p[i] = a / np.sqrt(2) * ((1 + 2 / np.pi) * np.sin(np.pi / (4 * a)) +
+                                     (1 - 2 / np.pi) * np.cos(np.pi / (4 * a)))
+        else:
+            p[i] = (np.sin(np.pi * t[i] * (1 - a)) + 4 * a * t[i] * np.cos(np.pi * t[i] * (1 + a))) / \
+                   (np.pi * t[i] * (1 - (4 * a * t[i]) ** 2))
+
+    # Normalize to unit energy
+    response = p / np.sqrt(np.sum(p ** 2))
+    return response
+
+# Example usage
+os_factor_example = 8
+roll_off_example = 0.5
+srrc_response = srrc(os_factor_example, roll_off_example)
+print("SRRC Response:", srrc_response)
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+def srrc(os_factor, roll_off):
+    a = roll_off
+    t = np.arange(-4, 4, 1 / os_factor) # Limiting the response to -4T to 4T
+
+    # Initialize an array for the SRRC pulse
+    p = np.zeros(len(t))
+
+    for i in range(len(t)):
+        if t[i] == 0:
+            p[i] = (1 - a) + 4 * a / np.pi
+        elif t[i] == 1 / (4 * a) or t[i] == -1 / (4 * a):
+            p[i] = a / np.sqrt(2) * ((1 + 2 / np.pi) * np.sin(np.pi / (4 * a)) +
+                                     (1 - 2 / np.pi) * np.cos(np.pi / (4 * a)))
+        else:
+            p[i] = (np.sin(np.pi * t[i] * (1 - a)) + 4 * a * t[i] * np.cos(np.pi * t[i] * (1 + a))) / \
+                   (np.pi * t[i] * (1 - (4 * a * t[i]) ** 2))
+
+    # Normalize to unit energy
+    response = p / np.sqrt(np.sum(p ** 2))
+    return response
+
+# Parameters
+overSampling_Factor = 8
+alpha = 0.1
+
+# Generate SRRC pulse
+pt = srrc(overSampling_Factor, alpha)
+
+# Convolve input bit with SRRC pulse
+Input_bit = [1]
+Input_bit_os = np.repeat(Input_bit, overSampling_Factor)
+output_of_srrc_filter = np.convolve(Input_bit_os, pt, mode='full')
+
+# Plot response of SRRC filter at Tx side
+plt.stem(output_of_srrc_filter)
+plt.title('Response of SRRC Filter at Tx side')
+plt.xlabel('Samples')
+plt.ylabel('Amplitude')
+plt.show()
+
+# Matched filter (SRRC) response at Rx side
+y = np.convolve(output_of_srrc_filter, pt, mode='full')
+midSample = len(np.arange(-4, 4, 1 / overSampling_Factor))
+y_truncated = y[midSample - 1:] # Remove unwanted portions (till the peak value)
+
+# Downsample (ADC conversion and sampling)
+y_down = y_truncated[::overSampling_Factor]
+plt.stem(y_down)
+plt.title('Down sampled output (ADC conversion and Sampling)')
+plt.xlabel('Samples')
+plt.ylabel('Amplitude')
+plt.show()
+
+
+
+
+
+#another
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Parameters
+Tb = 1  # Bit duration (seconds)
+Fs = 1000  # Sampling frequency (Hz)
+rolloff_factor = 0.5  # Roll-off factor for root raised cosine pulse
+SNR_dB = 10  # Signal-to-Noise Ratio (dB)
+message_bits = '1011001101'  # Example message bits
+
+# Generate baseband signal using root raised cosine pulse
+def root_raised_cosine(t, Tb, rolloff_factor):
+
+    T = Tb / rolloff_factor
+    pulse = np.sinc(t / Tb) * np.cos(np.pi * rolloff_factor * t / Tb) / (1 - (2 * rolloff_factor * t / Tb) ** 2)
+    return pulse
+
+# Generate message bits
+message_bits = np.array([int(bit) for bit in message_bits])
+
+# Generate time array for one bit duration
+t = np.linspace(0, Tb, Fs, endpoint=False)
+
+# Generate root raised cosine pulse
+pulse = root_raised_cosine(t - Tb/2, Tb, rolloff_factor)
+
+# Upsample message bits and apply pulse shaping
+baseband_signal = np.zeros(len(message_bits) * Fs)
+for i, bit in enumerate(message_bits):
+    baseband_signal[i * Fs : (i + 1) * Fs] = bit * pulse
+
+# Simulate transmission through AWGN channel
+noise_power = 10 ** (-SNR_dB / 10)
+noise = np.sqrt(noise_power) * np.random.randn(len(baseband_signal))
+received_signal = baseband_signal + noise
+
+# Apply matched filter
+matched_filter = pulse[::-1]  # Matched filter impulse response is the time-reversed pulse
+filtered_signal = np.convolve(received_signal, matched_filter, mode='same') / Fs
+
+# Plot signals
+plt.figure(figsize=(12, 8))
+
+plt.subplot(4, 1, 1)
+plt.stem(message_bits)
+plt.title('Message Bits')
+plt.xlabel('Bit Index')
+plt.ylabel('Value (0 or 1)')
+plt.ylim([-0.5, 1.5])
+plt.grid(True)
+
+plt.subplot(4, 1, 2)
+plt.plot(t, pulse)
+plt.title('Root Raised Cosine Pulse')
+plt.xlabel('Time (seconds)')
+plt.ylabel('Amplitude')
+plt.grid(True)
+
+plt.subplot(4, 1, 3)
+plt.plot(baseband_signal)
+plt.title('Baseband Signal with Pulse Shaping')
+plt.xlabel('Sample Index')
+plt.ylabel('Amplitude')
+plt.grid(True)
+
+plt.subplot(4, 1, 4)
+plt.plot(filtered_signal)
+plt.title('Filtered Signal (Matched Filter Output)')
+plt.xlabel('Sample Index')
+plt.ylabel('Amplitude')
+plt.grid(True)
+
+plt.tight_layout()
+plt.show()
