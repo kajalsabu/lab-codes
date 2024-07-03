@@ -1,0 +1,58 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.special import erfc
+
+# Q-function (Gaussian Q function)
+def Q(x):
+    return 0.5 * erfc(x / np.sqrt(2))
+
+# Function to simulate QPSK with AWGN
+def simulate_qpsk(num_bits, EbN0_dB):
+    # Generate random bits
+    bits = np.random.randint(2, size=num_bits)
+
+    # Map bits to QPSK symbols (real and imaginary parts)
+    real_part = 2 * bits[::2] - 1  #even positions
+    imag_part = 2 * bits[1::2] - 1  #odd positions
+    symbols = real_part + 1j * imag_part
+
+    # Add AWGN
+    noise_std = np.sqrt(1 / (2 * 10 ** (EbN0_dB / 10)))
+    noise = noise_std * (np.random.randn(num_bits // 2) + 1j * np.random.randn(num_bits // 2))
+    received_symbols = symbols + noise
+
+    # Demodulate symbols
+    demodulated_bits = np.zeros(num_bits)
+    demodulated_bits[::2] = np.real(received_symbols) > 0
+    demodulated_bits[1::2] = np.imag(received_symbols) > 0
+    return bits, demodulated_bits
+
+# Theoretical BER for QPSK in AWGN channel
+def theoretical_ber_qpsk(EbN0_dB):
+    EbN0 = 10 ** (EbN0_dB / 10)
+    return Q(np.sqrt(2 * EbN0))
+
+# Parameters
+num_bits = 10**6  # Number of bits to simulate
+EbN0_dB_range = np.arange(-5, 10, 1)  # Eb/N0 range in dB
+
+# Simulate and calculate BER
+simulated_BER = []
+theoretical_BER = []
+for EbN0_dB in EbN0_dB_range:
+    bits, demodulated_bits = simulate_qpsk(num_bits, EbN0_dB)
+    errors = np.sum(np.abs(bits - demodulated_bits))
+    simulated_BER.append(errors / num_bits)
+    theoretical_BER.append(theoretical_ber_qpsk(EbN0_dB))
+
+# Plot BER curves
+plt.figure(figsize=(10, 6))
+plt.semilogy(EbN0_dB_range, simulated_BER, 'b*', label='Simulated BER')
+plt.semilogy(EbN0_dB_range, theoretical_BER, 'r--', label='Theoretical BER')
+plt.xlabel('Eb/N0 (dB)')
+plt.ylabel('Bit Error Rate (BER)')
+plt.title('Error Performance of QPSK in AWGN Channel')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()  # Adjust layout for better alignment
+plt.show()
