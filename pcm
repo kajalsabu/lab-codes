@@ -1,118 +1,78 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Function to generate a sinusoidal waveform with a DC offset
-def generate_waveform(freq, sample_rate, amp, offset, time):
-    t = np.linspace(0, time, int(sample_rate * time), endpoint=False) #The resulting array t will contain equally spaced values between 0 and the specified time
-    return amp * np.sin(2 * np.pi * freq * t) + offset
+#parametes
+amplitude=1
+frequency=5
+time=1
+sampling_rate=100
+dc_offset=amplitude
+quantization_levels=[2**n for n in range(1,8)]
 
-# Function to quantize the waveform
-def quantize(signal, levels):
-    max_val = np.max(signal) # Calculates the maximum value in the input signal.
-    min_val = np.min(signal) #Calculates the minimum value in the input signal.
-    q_levels = np.linspace(min_val, max_val, levels) #Creates an array of levels equally spaced values between min_val and max_val
-    q_signal = np.digitize(signal, q_levels) - 1 #Assigns each sample in the input signal to the nearest quantization level.
-#The - 1 ensures that the indices match the quantization levels (since array indices start from 0).
-    return q_signal, q_levels[q_signal]
+#fn for quantization 
+def quantization(signal,levels):
+    maximum=np.max(signal)
+    minimum=np.min(signal)
+    q_levels=np.linspace(minimum,maximum,levels)
+    q_signals=np.digitize(signal,q_levels)-1
+    return q_signals,q_levels[q_signals]
 
-# Function to compute SNR
-def compute_snr(original, quantized):
-    noise = original - quantized
-    snr = 10 * np.log10(np.sum(original ** 2) / np.sum(noise ** 2))
+#fn for snr compute
+def snr_compute(original,quantised):
+    noise=original-quantised
+    snr=10*np.log10(np.sum(original**2)/np.sum(noise**2))
     return snr
 
-# Parameters
-frequency = 5  # Frequency of the sinusoidal waveform
-amplitude = 1  # Amplitude of the sinusoid
-dc_offset = amplitude  # DC offset to ensure positive amplitude
-sampling_rate = 100  # Sampling frequency
-duration = 1  # Duration of the signal in seconds
-L_values = [2**n for n in range(1, 8)]  # Number of quantization levels
+#plotting
+time=np.linspace(0,1,int(sampling_rate*time))
+waveform=amplitude*np.sin(2*np.pi*frequency*time)+dc_offset
 
-# Generate waveform
-waveform = generate_waveform(frequency, sampling_rate, amplitude, dc_offset, duration)
+#creating snr list
+snr_list=[]
+for l in quantization_levels:
+    #quantize waveform
+    quant_sig,quant_values=quantization(waveform,l)
 
-# Prepare plots
-fig, axs = plt.subplots(2, 1, figsize=(10, 8))
-
-# Plot original waveform
-axs[0].plot(waveform, label='Original Waveform')
-
-# Initialize SNR list
-snr_list = []
-
-for L in L_values:
-    # Quantize waveform
-    quantized_waveform, quantized_values = quantize(waveform, L)
-
-    # Compute SNR
-    snr = compute_snr(waveform, quantized_values)
+    #snr computation
+    snr=snr_compute(waveform,quant_values)
     snr_list.append(snr)
 
-    # Plot quantized waveform for the highest L value
-    if L == L_values[-1]:
-        axs[0].step(np.arange(len(waveform)), quantized_values, label='Quantized Waveform', where='mid')
-
-# Plot SNR vs number of bits per symbol
-bits = np.log2(L_values)
-axs[1].plot(bits, snr_list, marker='o', linestyle='-')
-axs[1].set_title('SNR vs Number of Bits per Symbol')
-axs[1].set_xlabel('Number of Bits per Symbol')
-axs[1].set_ylabel('SNR (dB)')
-axs[1].grid(True)
-
-# Finalize plots
-axs[0].set_title('Original and Quantized Waveform')
-axs[0].set_xlabel('Sample Number')
-axs[0].set_ylabel('Amplitude')
-axs[0].legend()
-axs[0].grid(True)
-plt.tight_layout()
-plt.show()
-
-#another
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-# Parameters
-sampling_rate = 1000  # Hz
-signal_frequency = 50  # Hz
-duration = 1  # seconds
-quantization_bits = 8  # Number of quantization bits
-dc_offset = 1.5  # Positive DC offset value
-
-# Generate analog signal (sine wave with DC offset)
-time = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
-analog_signal = np.sin(2 * np.pi * signal_frequency * time) + dc_offset
-
-# PCM encoding
-max_amplitude = np.max(np.abs(analog_signal))
-quantization_levels = 2 ** quantization_bits
-quantization_step = 2 * max_amplitude / quantization_levels
-quantized_signal = np.round(analog_signal / quantization_step) * quantization_step
-
-# PCM decoding (reconstruction)
-reconstructed_signal = quantized_signal
-
-# Plot original analog signal
-plt.figure(figsize=(10, 6))
-plt.subplot(2, 1, 1)
-plt.plot(time, analog_signal, label='Analog Signal', color='blue')
-plt.title('Original Analog Signal with DC Offset')
-plt.xlabel('Time (seconds)')
-plt.ylabel('Amplitude')
+#plotting quantised signal
+plt.figure()
+plt.subplot(3,1,1)
+plt.step(np.arange(len(waveform)),quant_values,label='quantised signal',where='mid',color='red')
 plt.legend()
 plt.grid(True)
+reconstructed_signal = quant_sig
+
+#plotting original waveform 
+plt.subplot(3,1,1)
+plt.plot(waveform,label='original waveform')
+plt.title('original waveform')
+plt.xlabel('no of samples')
+plt.ylabel('amplitude')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+
+#plotting of snr
+bits=np.log2(quantization_levels)
+plt.subplot(3,1,2)
+plt.plot(bits,snr_list,label='snr v/s no of bits',marker='o',color='black')
+plt.title('snr')
+plt.xlabel('no of bits')
+plt.ylabel('snr')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
 
 # Plot reconstructed signal (PCM)
-plt.subplot(2, 1, 2)
-plt.plot(time, reconstructed_signal, label='Reconstructed Signal (PCM)', linestyle='--', color='orange')
+plt.subplot(3, 1, 3)
+plt.plot(time,reconstructed_signal, label='Reconstructed Signal (PCM)', linestyle='--', color='orange')
 plt.title('Reconstructed Signal (PCM)')
 plt.xlabel('Time (seconds)')
 plt.ylabel('Amplitude')
 plt.legend()
 plt.grid(True)
-
 plt.tight_layout()
 plt.show()
