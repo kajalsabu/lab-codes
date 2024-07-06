@@ -19,7 +19,8 @@ def get_RC_filter(beta, Ts):
 Ts = 1
 Fs = 100
 g = get_RC_filter(beta=0.95, Ts=Ts)
-d = 2 * (np.random.randn(100) > 0.5) - 1
+bits = np.random.choice([0, 1], size=num_bits)
+d = 2 * bits - 1
 
 t = np.arange(0, (len(d))*Ts, 1/Fs)
 x = sum(d[k] * g(t - k*Ts) for k in range(len(d)))
