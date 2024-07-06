@@ -1,79 +1,82 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-#parametes
-amplitude=1
-frequency=5
-time=1
-sampling_rate=100
-dc_offset=amplitude
-quantization_levels=[2**n for n in range(1,8)]
+# Parameters
+Tb = 1 # Bit duration (seconds)
+Fs = 1000 # Sampling frequency (Hz)
+rolloff_factor = 0.5 # Roll-off factor for root raised cosine pulse
+SNR_dB = 10 # Signal-to-Noise Ratio (dB)
 
-#fn for quantization 
-def quantization(signal,levels):
-    maximum=np.max(signal)
-    minimum=np.min(signal)
-    q_levels=np.linspace(minimum,maximum,levels)
-    q_signals=np.digitize(signal,q_levels)-1
-    return q_signals,q_levels[q_signals]
+# Generate baseband signal using root raised cosine pulse
+def root_raised_cosine(t):
+    pulse = np.sinc(t / Tb) * np.cos(np.pi * rolloff_factor * t / Tb) / (1 - (2 * rolloff_factor * t / Tb) ** 2)
+    return pulse
 
-#fn for snr compute
-def snr_compute(original,quantised):
-    noise=original-quantised
-    snr=10*np.log10(np.sum(original**2)/np.sum(noise**2))
-    return snr
+# Generate message bits
+message_bits =[1,0,0,1,0,0,1,0,1] #example message has been written here
 
-#plotting
-time=np.linspace(0,1,int(sampling_rate*time))
-waveform=amplitude*np.sin(2*np.pi*frequency*time)+dc_offset
+# Generate time array for one bit duration
+t = np.arange(0,Tb, 1/Fs)
 
-#creating snr list
-snr_list=[]
-for l in quantization_levels:
-    #quantize waveform
-    quant_sig,quant_values=quantization(waveform,l)
+# Generate root raised cosine pulse
+pulse = root_raised_cosine(t - Tb/2)
 
-    #snr computation
-    snr=snr_compute(waveform,quant_values)
-    snr_list.append(snr)
+# Upsample message bits and apply pulse shaping
+baseband_signal = np.zeros(len(message_bits) * Fs)
+for i, bit in enumerate(message_bits):
+    baseband_signal[i * Fs : (i + 1) * Fs] = bit * pulse
 
-#plotting quantised signal
+# Simulate transmission through AWGN channel
+noise_power = 10 ** (-SNR_dB / 10)
+noise = np.sqrt(noise_power) * np.random.randn(len(baseband_signal))
+received_signal = baseband_signal + noise
+
+# Apply matched filter
+matched_filter = pulse[::-1] # Matched filter impulse response is the time-reversed pulse
+filtered_signal = np.convolve(received_signal, matched_filter, mode='same') / Fs
+
+#Retrieve the signal using downsampling
+retrieved=[0,0,0,0,0,0,0,0,0]
+for i in range(0,9):
+    retrieved[i]=filtered_signal[int((i*Fs)+(Fs/2))]
+
+# Plot signals
 plt.figure()
-plt.subplot(3,1,1)
-plt.step(np.arange(len(waveform)),quant_values,label='quantised signal',where='mid',color='red')
-plt.legend()
-plt.grid(True)
-reconstructed_signal = quant_sig
 
-#plotting original waveform 
-plt.subplot(3,1,1)
-plt.plot(waveform,label='original waveform')
-plt.title('original waveform')
-plt.xlabel('no of samples')
-plt.ylabel('amplitude')
-plt.legend()
+plt.subplot(5, 1, 1)
+plt.stem(message_bits)
+plt.title('Message Bits')
+plt.xlabel('Bit Index')
+plt.ylabel('Value (0 or 1)')
 plt.grid(True)
-plt.tight_layout()
 
-#plotting of snr
-bits=np.log2(quantization_levels)
-plt.subplot(3,1,2)
-plt.plot(bits,snr_list,label='snr v/s no of bits',marker='o',color='black')
-plt.title('snr')
-plt.xlabel('no of bits')
-plt.ylabel('snr')
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-
-# Plot reconstructed signal (PCM)
-plt.subplot(3, 1, 3)
-plt.plot(time,reconstructed_signal, label='Reconstructed Signal (PCM)', linestyle='--', color='orange')
-plt.title('Reconstructed Signal (PCM)')
+plt.subplot(5, 1, 2)
+plt.plot(t, pulse)
+plt.title('Root Raised Cosine Pulse')
 plt.xlabel('Time (seconds)')
 plt.ylabel('Amplitude')
-plt.legend()
 plt.grid(True)
+
+plt.subplot(5, 1, 3)
+plt.plot(baseband_signal)
+plt.title('Baseband Signal with Pulse Shaping')
+plt.xlabel('Sample Index')
+plt.ylabel('Amplitude')
+plt.grid(True)
+
+plt.subplot(5, 1, 4)
+plt.plot(filtered_signal)
+plt.title('Filtered Signal (Matched Filter Output)')
+plt.xlabel('Sample Index')
+plt.ylabel('Amplitude')
+plt.grid(True)
+
+plt.subplot(5, 1, 5)
+plt.stem(retrieved)
+plt.title('Reconstructed signal')
+plt.xlabel('Bit Index')
+plt.ylabel('Amplitude')
+plt.grid(True)
+
 plt.tight_layout()
 plt.show()
-
